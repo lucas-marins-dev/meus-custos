@@ -1,0 +1,58 @@
+services:
+  # Banco de Dados MySQL
+  db:
+    image: mysql:8.0
+    container_name: gerenciamento_custos_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-gerenciamento_custos}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gerenciamento_custos_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DATABASE: ${DB_DATABASE:-gerenciamento_custos}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "3001:3001"
+
+  # Frontend React (Vite + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gerenciamento_custos_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+
+volumes:
+  mysql_data:
+    driver: local
