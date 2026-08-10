@@ -2,17 +2,21 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
 } from '@nestjs/common';
 import { UsuarioService } from './usuario.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from 'src/entities/User';
 
 @Controller('usuarios')
@@ -32,6 +36,15 @@ export class UsuarioController {
     return this.usuarioService.listarTodos();
   }
 
+  @Put(':id')
+  @Roles(UserRole.ADMIN)
+  async atualizar(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usuarioService.atualizar(id, updateUserDto);
+  }
+
   @Patch(':id/status')
   @Roles(UserRole.ADMIN)
   async atualizarStatus(
@@ -39,5 +52,14 @@ export class UsuarioController {
     @Body() updateStatusDto: UpdateUserStatusDto,
   ) {
     return this.usuarioService.atualizarStatus(id, updateStatusDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  async excluir(
+    @Param('id') id: string,
+    @CurrentUser('sub') currentUserId: string,
+  ) {
+    return this.usuarioService.excluir(id, currentUserId);
   }
 }
