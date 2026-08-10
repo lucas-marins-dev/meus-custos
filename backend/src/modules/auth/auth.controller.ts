@@ -4,11 +4,12 @@ import {
   Get,
   Body,
   Res,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -23,13 +24,16 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: Response,
+    @Req() request: Request,
   ) {
     const result = await this.authService.login(loginDto);
 
-    // OWASP Top 10 A07 / A02: Cookie HTTP-Only + SameSite + Secure (se HTTPS)
+    // Cookie seguro se a requisição vier via HTTPS (Header x-forwarded-proto)
+    const isHttps = request.headers['x-forwarded-proto'] === 'https' || request.secure;
+
     response.cookie('access_token', result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     });
