@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight, Lock, Mail, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Wallet, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,95 +10,107 @@ export const Login: React.FC = () => {
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setErro('');
     setCarregando(true);
+
     try {
       await login(email, senha);
-      navigate('/');
-    } catch (err: any) {
-      setErro(err.response?.data?.message || 'Falha ao autenticar. Verifique o e-mail e a senha.');
+      navigate('/', { replace: true });
+    } catch (error: any) {
+      setErro(error.response?.data?.message || 'Falha ao autenticar. Verifique o e-mail e a senha.');
     } finally {
       setCarregando(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 relative overflow-hidden">
-      {/* Dynamic Background Glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-600/10 rounded-full blur-3xl pointer-events-none" />
+    <main className="auth-shell login-page" data-theme={theme}>
+      <button
+        type="button"
+        className="auth-shell__theme theme-toggle"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+        title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+      >
+        {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+      </button>
 
-      <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl shadow-xl shadow-emerald-950/60 mb-4">
-            <Wallet className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">FinanControl</h2>
-          <p className="text-sm text-slate-400 mt-1">Acesse sua conta para gerenciar suas finanças</p>
+      <div className="login-page__glow login-page__glow--left" aria-hidden="true" />
+      <div className="login-page__glow login-page__glow--right" aria-hidden="true" />
+
+      <section className="login-card panel" aria-labelledby="login-title">
+        <div className="login-card__brand">
+          <img src="/logo-meus-custos.svg" alt="" />
+          <span className="login-card__wordmark" aria-label="Meus Custos">
+            <span>meus</span>
+            <span>custos</span>
+          </span>
         </div>
 
-        {erro && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0" />
+        <header className="login-card__header">
+          <span>Bem-vindo de volta</span>
+          <h1 id="login-title">Acesse sua conta</h1>
+          <p>Entre para acompanhar suas finanças com clareza.</p>
+        </header>
+
+        {erro ? (
+          <div className="form-alert form-alert--error" role="alert" id="login-error">
+            <AlertCircle aria-hidden="true" />
             <span>{erro}</span>
           </div>
-        )}
+        ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              E-mail
-            </label>
-            <div className="relative">
-              <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+        <form className="login-form" onSubmit={handleSubmit} aria-describedby={erro ? 'login-error' : undefined}>
+          <label className="form-field">
+            <span className="form-field__label">E-mail</span>
+            <span className="form-field__control">
+              <Mail aria-hidden="true" />
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="seu.email@exemplo.com"
-                className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               />
-            </div>
-          </div>
+            </span>
+          </label>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Senha
-            </label>
-            <div className="relative">
-              <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <label className="form-field">
+            <span className="form-field__label">Senha</span>
+            <span className="form-field__control">
+              <Lock aria-hidden="true" />
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={senha}
-                onChange={(e) => setSenha(e.target.value)}
+                onChange={(event) => setSenha(event.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
               />
-            </div>
-          </div>
+            </span>
+          </label>
 
-          <button
-            type="submit"
-            disabled={carregando}
-            className="w-full mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 transition duration-200 disabled:opacity-50"
-          >
+          <button type="submit" disabled={carregando} className="primary-button login-form__submit">
             {carregando ? (
-              <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              <>
+                <span className="button-spinner" aria-hidden="true" />
+                Entrando...
+              </>
             ) : (
               <>
-                Entrar no Sistema
-                <ArrowRight className="w-4 h-4" />
+                Entrar
+                <ArrowRight aria-hidden="true" />
               </>
             )}
           </button>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };

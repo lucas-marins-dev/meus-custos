@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title description">
+  <title id="title">Meus Custos</title>
+  <desc id="description">Carteira minimalista com cédula e fecho lateral</desc>
+  <g transform="rotate(-7 30 15)">
+    <rect x="13" y="5" width="34" height="20" rx="4.5" fill="#00e65b"/>
+    <rect x="17" y="9" width="26" height="12" rx="2.5" fill="none" stroke="#03150a" stroke-width="2"/>
+    <circle cx="30" cy="15" r="3.4" fill="#03150a"/>
+    <path d="M20 15h3M37 15h3" stroke="#03150a" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <rect x="7.5" y="19" width="49" height="37" rx="10" fill="#00e65b" fill-opacity=".08" stroke="#00e65b" stroke-width="4"/>
+  <path d="M11.5 28h32" fill="none" stroke="#00e65b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43 30h13.5v14H43a7 7 0 0 1 0-14Z" fill="#00e65b"/>
+  <circle cx="43" cy="37" r="2" fill="#03150a"/>
+</svg>

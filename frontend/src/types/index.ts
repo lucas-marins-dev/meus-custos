@@ -30,6 +30,7 @@ export interface Despesa {
   tipo: TipoDespesa;
   paga: boolean;
   userId: string;
+  criadoEm?: string;
 }
 
 export type StatusDivida = 'PENDENTE' | 'PARCIAL' | 'QUITADA';
