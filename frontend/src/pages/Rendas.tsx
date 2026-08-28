@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Calendar, DollarSign, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { EmptyState, ErrorState, LoadingState, MetricCard, Modal, PageHeader } from '../components/ui/Ui';
 import { api } from '../services/api';
 import { Renda } from '../types';
-import { Plus, Trash2, Calendar, DollarSign, Tag, TrendingUp } from 'lucide-react';
+import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/format';
 
 export const Rendas: React.FC = () => {
   const queryClient = useQueryClient();
@@ -12,7 +14,12 @@ export const Rendas: React.FC = () => {
   const [dataRecebimento, setDataRecebimento] = useState(new Date().toISOString().split('T')[0]);
   const [categoria, setCategoria] = useState('Salário');
 
-  const { data: rendas = [], isLoading } = useQuery<Renda[]>({
+  const {
+    data: rendas = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<Renda[]>({
     queryKey: ['rendas'],
     queryFn: async () => {
       const res = await api.get('/rendas');
@@ -49,77 +56,112 @@ export const Rendas: React.FC = () => {
   });
 
   const totalRendas = rendas.reduce((acc, curr) => acc + Number(curr.valor), 0);
+  const mediaRendas = rendas.length > 0 ? totalRendas / rendas.length : 0;
+
+  const abrirModal = () => {
+    criarMutation.reset();
+    setModalAberto(true);
+  };
+
+  const fecharModal = () => {
+    criarMutation.reset();
+    setModalAberto(false);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Gestão de Receitas (Rendas)</h2>
-          <p className="text-sm text-slate-400 mt-1">Registre e acompanhe suas entradas financeiras por data de recebimento</p>
-        </div>
-        <button
-          onClick={() => setModalAberto(true)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-950/40 flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Receita
-        </button>
-      </div>
+    <div className="page-stack">
+      <PageHeader
+        title="Receitas (rendas)"
+        subtitle="Registre e acompanhe suas entradas por data de recebimento"
+        action={
+          <button type="button" className="primary-button" onClick={abrirModal}>
+            <Plus aria-hidden="true" />
+            Nova receita
+          </button>
+        }
+      />
 
-      {/* Card de Resumo */}
-      <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
-            <TrendingUp className="w-6 h-6" />
-          </div>
+      {!isLoading && !isError ? (
+        <section className="metrics-grid" aria-label="Resumo das receitas">
+          <MetricCard
+            label="Total de entradas"
+            value={formatCurrency(totalRendas)}
+            note={`${rendas.length} ${rendas.length === 1 ? 'lançamento registrado' : 'lançamentos registrados'}`}
+            icon={<DollarSign aria-hidden="true" />}
+            tone="positive"
+          />
+          <MetricCard
+            label="Receitas registradas"
+            value={String(rendas.length)}
+            note="Entradas ordenadas por recebimento"
+            icon={<TrendingUp aria-hidden="true" />}
+          />
+          <MetricCard
+            label="Média por lançamento"
+            value={formatCurrency(mediaRendas)}
+            note="Valor médio das entradas cadastradas"
+            icon={<Calendar aria-hidden="true" />}
+          />
+        </section>
+      ) : null}
+
+      <section className="panel data-panel" aria-labelledby="rendas-title">
+        <div className="panel-heading">
           <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase">Total de Entradas</span>
-            <p className="text-2xl font-extrabold text-emerald-400">
-              R$ {totalRendas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
+            <h2 id="rendas-title">Entradas registradas</h2>
+            <p>Ordenadas por data de recebimento</p>
           </div>
         </div>
-      </div>
 
-      {/* Tabela de Receitas */}
-      <div className="glass-panel rounded-2xl border border-slate-800/80 overflow-hidden">
+        {removerMutation.isError ? (
+          <ErrorState
+            compact
+            label={getApiErrorMessage(removerMutation.error, 'Não foi possível excluir a receita.')}
+          />
+        ) : null}
+
         {isLoading ? (
-          <div className="p-8 text-center text-slate-400">Carregando receitas...</div>
+          <LoadingState label="Carregando receitas..." />
+        ) : isError ? (
+          <ErrorState label={getApiErrorMessage(error, 'Não foi possível carregar as receitas.')} />
         ) : rendas.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">Nenhuma receita registrada ainda.</div>
+          <EmptyState
+            label="Nenhuma receita registrada ainda."
+            icon={<TrendingUp aria-hidden="true" />}
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/80 text-xs uppercase text-slate-400 border-b border-slate-800">
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-4">Descrição</th>
-                  <th className="px-6 py-4">Categoria</th>
-                  <th className="px-6 py-4">Data Recebimento</th>
-                  <th className="px-6 py-4 text-right">Valor</th>
-                  <th className="px-6 py-4 text-center">Ações</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Data de recebimento</th>
+                  <th className="align-right">Valor</th>
+                  <th className="align-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody>
                 {rendas.map((renda) => (
-                  <tr key={renda.id} className="hover:bg-slate-900/40 transition">
-                    <td className="px-6 py-4 font-semibold text-white">{renda.descricao}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md text-xs font-medium border border-slate-700">
-                        {renda.categoria}
-                      </span>
+                  <tr key={renda.id}>
+                    <td>
+                      <strong>{renda.descricao}</strong>
                     </td>
-                    <td className="px-6 py-4 text-slate-400">
-                      {new Date(renda.dataRecebimento).toLocaleDateString('pt-BR')}
+                    <td>
+                      <span className="tag">{renda.categoria}</span>
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-emerald-400">
-                      R$ {Number(renda.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    <td>{formatDate(renda.dataRecebimento)}</td>
+                    <td className="amount amount--positive align-right">{formatCurrency(renda.valor)}</td>
+                    <td className="align-center">
                       <button
+                        type="button"
+                        className="icon-button icon-button--danger"
                         onClick={() => removerMutation.mutate(renda.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                        disabled={removerMutation.isPending}
+                        aria-label={`Excluir receita ${renda.descricao}`}
+                        title="Excluir receita"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -128,92 +170,89 @@ export const Rendas: React.FC = () => {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Modal para Adicionar Receita */}
-      {modalAberto && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-800 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Adicionar Nova Receita</h3>
+      {modalAberto ? (
+        <Modal title="Adicionar nova receita" onClose={fecharModal}>
+          <form
+            className="modal-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              criarMutation.mutate();
+            }}
+          >
+            {criarMutation.isError ? (
+              <ErrorState
+                compact
+                label={getApiErrorMessage(criarMutation.error, 'Não foi possível salvar a receita.')}
+              />
+            ) : null}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                criarMutation.mutate();
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Descrição</label>
+            <div className="form-field">
+              <label htmlFor="renda-descricao">Descrição</label>
+              <input
+                id="renda-descricao"
+                type="text"
+                required
+                value={descricao}
+                onChange={(event) => setDescricao(event.target.value)}
+                placeholder="Ex.: Salário mensal"
+              />
+            </div>
+
+            <div className="form-grid">
+              <div className="form-field">
+                <label htmlFor="renda-valor">Valor</label>
                 <input
-                  type="text"
-                  required
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Ex: Salário Mensal, Venda de item..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Valor (R$)</label>
-                <input
+                  id="renda-valor"
                   type="number"
+                  min="0.01"
                   step="0.01"
                   required
                   value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 outline-none"
+                  onChange={(event) => setValor(event.target.value)}
+                  placeholder="0,00"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Data de Recebimento</label>
+              <div className="form-field">
+                <label htmlFor="renda-data">Data de recebimento</label>
                 <input
+                  id="renda-data"
                   type="date"
                   required
                   value={dataRecebimento}
-                  onChange={(e) => setDataRecebimento(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 outline-none"
+                  onChange={(event) => setDataRecebimento(event.target.value)}
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Categoria</label>
-                <select
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 outline-none"
-                >
-                  <option value="Salário">Salário</option>
-                  <option value="Freelance">Freelance</option>
-                  <option value="Investimentos">Investimentos</option>
-                  <option value="Presente">Presente</option>
-                  <option value="Outros">Outros</option>
-                </select>
-              </div>
+            <div className="form-field">
+              <label htmlFor="renda-categoria">Categoria</label>
+              <select
+                id="renda-categoria"
+                value={categoria}
+                onChange={(event) => setCategoria(event.target.value)}
+              >
+                <option value="Salário">Salário</option>
+                <option value="Freelance">Freelance</option>
+                <option value="Investimentos">Investimentos</option>
+                <option value="Presente">Presente</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalAberto(false)}
-                  className="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={criarMutation.isPending}
-                  className="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl shadow-lg transition"
-                >
-                  {criarMutation.isPending ? 'Salvando...' : 'Salvar'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={fecharModal}>
+                Cancelar
+              </button>
+              <button type="submit" className="primary-button" disabled={criarMutation.isPending}>
+                {criarMutation.isPending ? 'Salvando...' : 'Salvar receita'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
     </div>
   );
 };

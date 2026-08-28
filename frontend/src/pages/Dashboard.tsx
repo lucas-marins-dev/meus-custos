@@ -1,220 +1,308 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../services/api';
-import { DashboardMetricas } from '../types';
 import {
-  Wallet,
-  TrendingUp,
   AlertTriangle,
+  CalendarDays,
   Store,
-  Calendar,
-  Building2,
+  Wallet,
 } from 'lucide-react';
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
-  LineChart,
-  Line,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
+import { api } from '../services/api';
+import { DashboardMetricas, Despesa } from '../types';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  MetricCard,
+  PageHeader,
+} from '../components/ui/Ui';
+import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/format';
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+const CHART_COLORS = [
+  'var(--primary)',
+  'var(--red)',
+  'var(--blue)',
+  'var(--yellow)',
+  'var(--purple)',
+  '#f97316',
+  '#06b6d4',
+];
+
+const formatChartDate = (value: string) => {
+  const parts = value.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : value;
+};
 
 export const Dashboard: React.FC = () => {
-  const { data: metricas, isLoading, isError } = useQuery<DashboardMetricas>({
+  const {
+    data: metricas,
+    isLoading: metricasLoading,
+    isError: metricasIsError,
+    error: metricasError,
+  } = useQuery<DashboardMetricas>({
     queryKey: ['dashboard-metricas'],
     queryFn: async () => {
-      const res = await api.get('/dashboard/metricas');
-      return res.data;
+      const response = await api.get('/dashboard/metricas');
+      return response.data;
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
+  const {
+    data: despesas = [],
+    isLoading: despesasLoading,
+    isError: despesasIsError,
+    error: despesasError,
+  } = useQuery<Despesa[]>({
+    queryKey: ['despesas'],
+    queryFn: async () => {
+      const response = await api.get('/despesas');
+      return response.data;
+    },
+  });
 
-  if (isError || !metricas) {
-    return (
-      <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400">
-        Não foi possível carregar as métricas do Dashboard.
-      </div>
-    );
-  }
+  const despesasRecentes = [...despesas]
+    .sort((a, b) =>
+      (b.criadoEm || b.dataVencimento).localeCompare(a.criadoEm || a.dataVencimento),
+    )
+    .slice(0, 5);
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Visão Geral & Dashboard</h2>
-        <p className="text-sm text-slate-400 mt-1">Acompanhe seu saldo, maiores gastos e previsão financeira mensal</p>
-      </div>
+    <div className="view-stack dashboard-view">
+      <PageHeader
+        title="Visão geral"
+        subtitle="Acompanhe seu saldo, seus gastos e a previsão financeira do mês"
+      />
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Saldo Atual */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Saldo Atual</span>
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
-              <Wallet className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-2xl font-extrabold text-white">
-            R$ {metricas.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
-          <span className="text-xs text-slate-400 mt-2 block">Baseado em receitas até hoje</span>
-        </div>
-
-        {/* Card 2: Saldo Previsto no Fim do Mês */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Previsão Fim do Mês</span>
-            <div className="p-2 bg-teal-500/10 text-teal-400 rounded-xl">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <p className={`text-2xl font-extrabold ${metricas.saldoPrevistoFimMes >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            R$ {metricas.saldoPrevistoFimMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
-          <span className="text-xs text-slate-400 mt-2 block">Receitas - Despesas do mês</span>
-        </div>
-
-        {/* Card 3: Maior Gasto */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Maior Gasto Registrado</span>
-            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-          </div>
-          {metricas.maiorGasto ? (
-            <div>
-              <p className="text-2xl font-extrabold text-amber-400">
-                R$ {metricas.maiorGasto.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-slate-300 truncate font-medium mt-1">
-                {metricas.maiorGasto.descricao} ({metricas.maiorGasto.local})
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Nenhum gasto registrado</p>
+      {metricasLoading ? (
+        <LoadingState label="Carregando métricas do dashboard..." />
+      ) : metricasIsError || !metricas ? (
+        <ErrorState
+          label={getApiErrorMessage(
+            metricasError,
+            'Não foi possível carregar as métricas do dashboard.',
           )}
-        </div>
+        />
+      ) : (
+        <>
+          <section className="stats-grid" aria-label="Resumo financeiro">
+            <MetricCard
+              label="Saldo atual"
+              value={formatCurrency(metricas.saldoAtual)}
+              note="Receitas recebidas menos despesas pagas"
+              icon={<Wallet aria-hidden="true" />}
+              tone={metricas.saldoAtual >= 0 ? 'positive' : 'negative'}
+            />
+            <MetricCard
+              label="Previsão fim do mês"
+              value={formatCurrency(metricas.saldoPrevistoFimMes)}
+              note="Receitas menos despesas previstas no mês"
+              icon={<CalendarDays aria-hidden="true" />}
+              tone={metricas.saldoPrevistoFimMes >= 0 ? 'positive' : 'negative'}
+            />
+            <MetricCard
+              label="Maior gasto"
+              value={metricas.maiorGasto ? formatCurrency(metricas.maiorGasto.valor) : 'Sem dados'}
+              note={
+                metricas.maiorGasto
+                  ? `${metricas.maiorGasto.descricao} · ${metricas.maiorGasto.local}`
+                  : 'Cadastre uma despesa para acompanhar'
+              }
+              icon={<AlertTriangle aria-hidden="true" />}
+              tone="warning"
+            />
+            <MetricCard
+              label="Local mais caro"
+              value={metricas.localMaisGastos?.local || 'Sem dados'}
+              note={
+                metricas.localMaisGastos
+                  ? `Total de ${formatCurrency(metricas.localMaisGastos.totalGasto)}`
+                  : 'Nenhum estabelecimento mapeado'
+              }
+              icon={<Store aria-hidden="true" />}
+            />
+          </section>
 
-        {/* Card 4: Local com Mais Gastos */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Local Mais Caro</span>
-            <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl">
-              <Store className="w-5 h-5" />
-            </div>
-          </div>
-          {metricas.localMaisGastos ? (
-            <div>
-              <p className="text-xl font-bold text-white truncate">
-                {metricas.localMaisGastos.local}
-              </p>
-              <p className="text-xs text-purple-400 font-semibold mt-1">
-                Acumulado: R$ {metricas.localMaisGastos.totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Nenhum local mapeado</p>
-          )}
-        </div>
-      </div>
+          <section className="charts-grid" aria-label="Gráficos financeiros">
+            <article className="panel chart-panel">
+              <h2>Evolução do mês (entradas × saídas)</h2>
+              <p className="muted">Comparativo por data de lançamento</p>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico de Linha: Evolução Diária */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-white">Evolução do Mês (Entradas x Saídas)</h3>
-              <p className="text-xs text-slate-400">Comparativo por data de lançamento</p>
-            </div>
-          </div>
-          <div className="h-72 w-full">
-            {metricas.evolucaoDiaria.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={metricas.evolucaoDiaria}>
-                  <XAxis dataKey="data" stroke="#64748b" fontSize={12} />
-                  <YAxis stroke="#64748b" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                    labelStyle={{ color: '#94a3b8' }}
+              <div className="dashboard-chart dashboard-chart--bars" aria-label="Gráfico de entradas e saídas">
+                {metricas.evolucaoDiaria.length === 0 ? (
+                  <EmptyState
+                    compact
+                    label="Cadastre receitas e despesas com datas neste mês para visualizar o gráfico."
                   />
-                  <Line type="monotone" dataKey="receita" stroke="#10b981" strokeWidth={3} name="Receita (R$)" />
-                  <Line type="monotone" dataKey="despesa" stroke="#ef4444" strokeWidth={3} name="Despesa (R$)" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-                Cadastre receitas e despesas com datas para visualizar o gráfico.
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={metricas.evolucaoDiaria}
+                      margin={{ top: 24, right: 8, bottom: 0, left: 0 }}
+                    >
+                      <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="data"
+                        tickFormatter={formatChartDate}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        width={58}
+                        tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                        tickFormatter={(value) =>
+                          new Intl.NumberFormat('pt-BR', {
+                            notation: 'compact',
+                            maximumFractionDigits: 1,
+                          }).format(Number(value))
+                        }
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'var(--surface-2)' }}
+                        contentStyle={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 12,
+                          color: 'var(--text)',
+                        }}
+                        labelFormatter={(label) => formatDate(String(label))}
+                        formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
+                      />
+                      <Bar
+                        dataKey="receita"
+                        name="Receitas"
+                        fill="var(--primary)"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={22}
+                        isAnimationActive={false}
+                      />
+                      <Bar
+                        dataKey="despesa"
+                        name="Despesas"
+                        fill="var(--red)"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={22}
+                        isAnimationActive={false}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Gráfico de Rosca: Gastos por Categoria */}
-        <div className="glass-panel p-6 rounded-2xl border border-slate-800/80">
-          <h3 className="text-lg font-bold text-white mb-2">Gastos por Categoria</h3>
-          <p className="text-xs text-slate-400 mb-4">Distribuição percentual dos custos</p>
-
-          <div className="h-64 w-full flex items-center justify-center">
-            {metricas.gastosPorCategoria.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={metricas.gastosPorCategoria}
-                    dataKey="total"
-                    nameKey="categoria"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                  >
-                    {metricas.gastosPorCategoria.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-slate-500 text-sm">Sem categorias cadastradas</div>
-            )}
-          </div>
-
-          <div className="space-y-2 mt-2">
-            {metricas.gastosPorCategoria.map((cat, idx) => (
-              <div key={cat.categoria} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                  />
-                  <span className="text-slate-300 font-medium">{cat.categoria}</span>
+              {metricas.evolucaoDiaria.length > 0 ? (
+                <div className="chart-key" aria-label="Legenda do gráfico">
+                  <span><i className="green" />Receitas</span>
+                  <span><i className="red" />Despesas</span>
                 </div>
-                <span className="font-bold text-slate-200">
-                  R$ {cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+              ) : null}
+            </article>
+
+            <article className="panel category-panel">
+              <h2>Gastos por categoria</h2>
+              <p className="muted">Distribuição dos custos registrados</p>
+
+              {metricas.gastosPorCategoria.length === 0 ? (
+                <EmptyState compact label="Nenhuma categoria de despesa cadastrada." />
+              ) : (
+                <>
+                  <div className="dashboard-chart dashboard-chart--pie" aria-label="Gráfico de gastos por categoria">
+                    <ResponsiveContainer width="100%" height={230}>
+                      <PieChart>
+                        <Pie
+                          data={metricas.gastosPorCategoria}
+                          dataKey="total"
+                          nameKey="categoria"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={58}
+                          outerRadius={88}
+                          paddingAngle={3}
+                          stroke="var(--surface)"
+                          strokeWidth={2}
+                          isAnimationActive={false}
+                        >
+                          {metricas.gastosPorCategoria.map((categoria, index) => (
+                            <Cell
+                              key={`${categoria.categoria}-${index}`}
+                              fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 12,
+                            color: 'var(--text)',
+                          }}
+                          formatter={(value) => formatCurrency(Number(value))}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <ul className="legend" aria-label="Legenda de gastos por categoria">
+                    {metricas.gastosPorCategoria.map((categoria, index) => (
+                      <li key={categoria.categoria}>
+                        <span>
+                          <i style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                          {categoria.categoria}
+                        </span>
+                        <strong>{formatCurrency(categoria.total)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </article>
+          </section>
+        </>
+      )}
+
+      <article className="panel recent-panel">
+        <h2>Lançamentos recentes</h2>
+        <p className="muted">Últimas despesas registradas</p>
+
+        {despesasLoading ? (
+          <LoadingState compact label="Carregando lançamentos recentes..." />
+        ) : despesasIsError ? (
+          <ErrorState
+            compact
+            label={getApiErrorMessage(
+              despesasError,
+              'Não foi possível carregar os lançamentos recentes.',
+            )}
+          />
+        ) : despesasRecentes.length === 0 ? (
+          <EmptyState compact label="Nenhuma despesa cadastrada ainda." />
+        ) : (
+          <div className="recent-list">
+            {despesasRecentes.map((despesa) => (
+              <div className="recent-row" key={despesa.id}>
+                <div>
+                  <strong>{despesa.descricao}</strong>
+                  <span>{despesa.local} · {formatDate(despesa.dataVencimento)}</span>
+                </div>
+                <span className="tag">{despesa.categoria}</span>
+                <strong className="amount">{formatCurrency(despesa.valor)}</strong>
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        )}
+      </article>
     </div>
   );
 };
